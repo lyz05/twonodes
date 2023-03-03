@@ -2,18 +2,17 @@
 Fabric 2.2
 fabric-samples 3d2875c180c67d9f3b3a166bb15b9c73fb6c7091
 fabric-samples 15275a0d4d46696c22e652a0674e36c570431a33
-# 准备操作
-``` bash
-cd ~
-git clone https://github.com/hyperledger/fabric-samples.git
-git checkout 3d2875c180c67d9f3b3a166bb15b9c73fb6c7091
-```
+
 # 手动搭建hyperledger fabric v2.x 网络（一）
 演示证书模板生成
 ``` bash
 cryptogen showtemplate > crypto-config.yaml
 ```
 修改`crypto-config.yaml`文件中3处有关`EnableNodeOUs`的部分为`true`。
+``` bash
+sed -i 's/EnableNodeOUs: false/EnableNodeOUs: true/g' crypto-config.yaml
+```
+根据`crypto-config.yaml`生成相关证书
 ``` bash
 cryptogen generate --config=crypto-config.yaml
 ```
@@ -22,11 +21,15 @@ cryptogen generate --config=crypto-config.yaml
 # 手动搭建hyperledger fabric v2.x 网络（二）
 创建通道所需的配置，需要选择`Sep 16, 2020`的提交
 ``` bash
-wget https://raw.githubusercontent.com/hyperledger/fabric-samples/3d2875c180c67d9f3b3a166bb15b9c73fb6c7091/test-network/configtx/configtx.yaml
+wget https://raw.githubusercontent.com/hyperledger/fabric-samples/3d2875c180c67d9f3b3a166bb15b9c73fb6c7091/test-network/configtx/configtx.yaml -O configtx.yaml
 ```
 更改msp路径为项目具体的路径。
 搜索所有包含`../organizations`文本的路径，替换为`crypto-config`当前路径。
+``` bash
+sed -i 's/..\/organizations/crypto-config/g' configtx.yaml
+```
 修改`Profiles`中的部分，按照[官方文档](https://hyperledger-fabric.readthedocs.io/zh_CN/latest/create_channel/create_channel_config.html#profiles)中的内容来。
+所选提交无需修改`Profiles`部分。
 
 使用官方工具，生成通道配置。
 ``` bash
@@ -52,19 +55,15 @@ wget https://raw.githubusercontent.com/hyperledger/fabric-samples/15275a0d4d4669
 修改`peer0.org2.example.com`环境变量中的`CORE_VM_DOCKER_HOSTCONFIG_NETWORKMODE`为`twonodes_test`。
 把cli拆成cli1和cli2，分别表示两个组织的cli，环境变量部分，参考测试网络中的内容进行配置。
 热心网友提供的[`docker-compose.yml`文件](https://www.godzhang.top/archives/dockcer-composeyaml-wen-jian)
-<!-- 存疑 -->
+<!-- 此部分存疑 -->
 
 # 手动搭建hyperledger fabric v2.x 网络（四）完结
 第三期中的docker-compose中还有一处需要修改，有关节点启动方式，详看视频。或者直接拿热心网友的文件过来用。
-停止集群并清理文件
-```
-docker-compose down
-docker volume prune
-```
 启动集群
 ```
+mkdir -p chaincode/go/
 docker-compose up -d
-docker ps
+docker-compose ps
 ```
 ## 加入通道
 进入到终端节点
@@ -140,4 +139,10 @@ peer chaincode query -C mychannel -n sacc -c '{"Args":["query","a"]}'
 链码测试键值对["a","cc"]
 ``` bash
 peer chaincode invoke -o orderer.example.com:7050 --tls true --cafile /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem -C mychannel -n sacc --peerAddresses peer0.org1.example.com:7051 --tlsRootCertFiles /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt --peerAddresses peer0.org2.example.com:9051 --tlsRootCertFiles /opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/org2.example.com/peers/peer0.org2.example.com/tls/ca.crt -c '{"Args":["set","a","cc"]}'
+```
+
+# 清理实验环境
+```
+docker-compose down --volumes --remove-orphans
+rm -rf crypto-config chaincode channel-artifacts sacc.tar.gz mychannel.block 
 ```
